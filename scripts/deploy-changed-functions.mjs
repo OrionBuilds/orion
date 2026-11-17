@@ -14,12 +14,12 @@
  *   node scripts/deploy-changed-functions.mjs <slug>... --deploy [--yes]
  *
  * --deploy only runs from a clean tree whose HEAD equals origin/main and that passes
- * worm-ioc-check, asks before deploying (unless --yes), and never deletes orphans.
+ * scripts/security/check-repo.sh, asks before deploying (unless --yes), and never deletes orphans.
  * Env: SUPABASE_PROJECT_REF (required). Needs a logged-in supabase CLI.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
-import { tmpdir, homedir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
@@ -148,8 +148,8 @@ function assertDeployable() {
   const head = sh("git", ["rev-parse", "HEAD"], { cwd: ROOT }).trim();
   const main = sh("git", ["rev-parse", "origin/main"], { cwd: ROOT }).trim();
   if (head !== main) throw new Error(`HEAD (${head.slice(0, 7)}) is not origin/main (${main.slice(0, 7)}); deploy only what is on main`);
-  const guard = join(homedir(), ".config", "git", "hooks", "worm-ioc-check");
-  if (existsSync(guard)) sh(guard, ["HEAD"], { cwd: ROOT });
+  // Refuse to deploy code that shows supply-chain worm warning signs (throws on a non-zero exit).
+  sh("bash", [join(ROOT, "scripts", "security", "check-repo.sh"), "HEAD"], { cwd: ROOT });
   return head.slice(0, 7);
 }
 
