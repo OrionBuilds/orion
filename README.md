@@ -43,7 +43,7 @@ Never commit `.env` files or API keys. Keys live in Supabase secrets, Supabase V
 
 ## Learn to build with it
 
-The free Autom8ion Lab community on Skool walks through setting up Orion and the agents step by step. [[TODO: Skool community link]]
+The free Autom8ion Lab community on Skool walks through setting up Orion and the agents step by step. [Join the community](https://www.skool.com/autom8ion-lab-7149).
 
 ## Licence
 
