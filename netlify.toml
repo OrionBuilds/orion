@@ -1,0 +1,13 @@
+# Netlify build configuration.
+#
+# The build command, publish dir, and all VITE_* vars (Supabase, etc.) come from the Netlify site
+# settings; this file adds nothing to the build today.
+#
+# 2026-10-28: the in-app Clara panel (VITE_INAPP_ASSISTANT / VITE_CLARA_CHAT) is deleted. The owner
+# talks to Clara and FRIDAY in the pinned agent threads in Conversations (agent-thread edge
+# function -> runOwnerBrain). Both build vars were removed with it.
+#
+# Deliberately PRESERVED (do not delete):
+#   - supabase/functions/assistant-meeting-processor — /meetings "Send to Memory" + OS handlers
+#   - clara_memories table + clara-memory-decay cron — CLARA's cold archive (osMemoryImport)
+#   - clara-chat edge function — Clara's owner brain over HTTP (same runOwnerBrain the threads use)

@@ -1,0 +1,489 @@
+# Supabase CLI project config.
+#
+# Added 2026-07-29 to close QA finding F-11: without this file the CLI does not
+# recognise the repo as a Supabase project, so `migration list --linked` and
+# `db push` both fail with "Cannot find project ref" even when linked.
+#
+# The verify_jwt entries below are NOT decoration. The CLI defaults verify_jwt to
+# true, so once this file exists any function not listed here would be flipped to
+# JWT-required on its next deploy. 135 of the 195 deployed functions currently run
+# with verify_jwt=false - webhook receivers, OAuth callbacks and cron targets that
+# authenticate by their own means (provider signature, state token, CRON_SECRET).
+# Flipping them would break every one at once, so the live state is pinned here.
+#
+# Generated from the deployed state of the production project. Keep in sync
+# when adding a function: declare verify_jwt = false explicitly, or it defaults to true.
+
+project_id = "orion"
+
+# --- functions deployed with verify_jwt = false (163) ---
+
+[functions.ai-agent-executor]
+verify_jwt = false
+
+[functions.ai-draft-updater]
+verify_jwt = false
+
+[functions.ai-knowledge-embeddings]
+verify_jwt = false
+
+[functions.ai-report-cleanup]
+verify_jwt = false
+
+[functions.ai-report-query]
+verify_jwt = false
+
+[functions.ai-report-schedule-runner]
+verify_jwt = false
+
+[functions.ai-settings-elevenlabs]
+verify_jwt = false
+
+[functions.ai-settings-providers]
+verify_jwt = false
+
+[functions.approval-magic-link]
+verify_jwt = false
+
+[functions.approval-reminder-cron]
+verify_jwt = false
+
+[functions.assistant-meeting-processor]
+verify_jwt = false
+
+[functions.assistant-stt-final]
+verify_jwt = false
+
+[functions.assistant-stt-wake]
+verify_jwt = false
+
+[functions.assistant-tts]
+verify_jwt = false
+
+[functions.assistant-tts-stream]
+verify_jwt = false
+
+[functions.assistant-voice]
+verify_jwt = false
+
+[functions.booking-api]
+verify_jwt = false
+
+[functions.booking-email]
+verify_jwt = false
+
+[functions.bootstrap-admin]
+verify_jwt = false
+
+[functions.change-request-notify]
+verify_jwt = false
+
+[functions.clara-memory-decay]
+verify_jwt = false
+
+[functions.clara-sms-responder]
+verify_jwt = false
+
+# Internal dispatch target for webchat-api, same posture as clara-sms-responder above: the gateway
+# check is off and the function verifies the service-role bearer itself.
+[functions.clara-web-responder]
+verify_jwt = false
+
+[functions.client-portal-auth]
+verify_jwt = false
+
+[functions.conversation-rule-executor]
+verify_jwt = false
+
+[functions.drive-api]
+verify_jwt = false
+
+[functions.drive-auto-connect]
+verify_jwt = false
+
+[functions.drive-oauth-callback]
+verify_jwt = false
+
+[functions.drive-oauth-start]
+verify_jwt = false
+
+[functions.fetch-provider-models]
+verify_jwt = false
+
+# Public form embeds on the business website POST here anonymously. Without this block the next CLI
+# deploy would default verify_jwt to true and every form on the site would start 401ing — the
+# function has its own guards (rate limit, honeypot, hCaptcha, idempotency) and does not want a JWT.
+[functions.form-submit]
+verify_jwt = false
+
+[functions.gmail-oauth-callback]
+verify_jwt = false
+
+[functions.gmail-oauth-start]
+verify_jwt = false
+
+[functions.gmail-sync]
+verify_jwt = false
+
+[functions.gmail-sync-incremental]
+verify_jwt = false
+
+[functions.gmail-sync-job-runner]
+verify_jwt = false
+
+[functions.gmail-watch-renew]
+verify_jwt = false
+
+[functions.gmail-webhook]
+verify_jwt = false
+
+[functions.google-calendar-oauth]
+verify_jwt = false
+
+[functions.google-calendar-sync-cron]
+verify_jwt = false
+
+[functions.google-calendar-sync-runner]
+verify_jwt = false
+
+[functions.google-oauth-unified]
+verify_jwt = false
+
+[functions.google-token-refresh-cron]
+verify_jwt = false
+
+[functions.microsoft-calendar-sync]
+verify_jwt = false
+
+[functions.microsoft-contacts-sync]
+verify_jwt = false
+
+[functions.microsoft-disconnect]
+verify_jwt = false
+
+[functions.microsoft-mail-send]
+verify_jwt = false
+
+[functions.microsoft-mail-sync]
+verify_jwt = false
+
+[functions.microsoft-mail-backfill]
+verify_jwt = false
+
+[functions.clara-request-results]
+verify_jwt = false
+
+[functions.agent-thread]
+verify_jwt = false
+
+[functions.clara-appointment-confirmations]
+verify_jwt = false
+
+[functions.clara-outbound-dialer]
+verify_jwt = false
+
+[functions.clara-voice-outbound]
+verify_jwt = false
+
+[functions.call-recording-url]
+verify_jwt = false
+
+[functions.clara-approved-sends]
+verify_jwt = false
+
+[functions.clara-stall-nudges]
+verify_jwt = false
+
+[functions.clara-notify-flush]
+verify_jwt = false
+
+[functions.clara-feedback-replies]
+verify_jwt = false
+
+[functions.clara-email-triage]
+verify_jwt = false
+
+[functions.clara-briefs]
+verify_jwt = false
+
+[functions.clara-calendar-watch]
+verify_jwt = false
+
+[functions.clara-deadline-scan]
+verify_jwt = false
+
+[functions.clara-voice-device]
+verify_jwt = false
+
+[functions.clara-app]
+verify_jwt = false
+
+[functions.factory-runner]
+verify_jwt = false
+
+[functions.caio-generate]
+verify_jwt = false
+
+[functions.caio-generator]
+verify_jwt = false
+
+[functions.caio-extract]
+verify_jwt = false
+
+[functions.caio-meeting-watch]
+verify_jwt = false
+
+[functions.clara-recording]
+verify_jwt = false
+
+[functions.call-recording-backfill]
+verify_jwt = false
+
+[functions.clara-tts]
+verify_jwt = false
+
+[functions.clara-voice]
+verify_jwt = false
+
+[functions.clara-voice-hold]
+verify_jwt = false
+
+[functions.clara-voice-relay]
+verify_jwt = false
+
+[functions.clara-voice-status]
+verify_jwt = false
+
+[functions.microsoft-oauth-callback]
+verify_jwt = false
+
+[functions.sharepoint-api]
+verify_jwt = false
+
+[functions.github-api]
+verify_jwt = false
+
+[functions.secrets-reseal]
+verify_jwt = false
+
+[functions.project-files]
+verify_jwt = false
+
+[functions.microsoft-oauth-start]
+verify_jwt = false
+
+[functions.microsoft-token-refresh-cron]
+verify_jwt = false
+
+[functions.integrations-connect]
+verify_jwt = false
+
+[functions.integrations-oauth-callback]
+verify_jwt = false
+
+[functions.integrations-webhooks]
+verify_jwt = false
+
+[functions.link-redirect]
+verify_jwt = false
+
+# email-unsubscribe: public List-Unsubscribe one-click target + the app's /unsubscribe confirm
+# page. Recipients and mail clients carry no JWT; the slug is the only credential. It was deployed
+# with verify_jwt = true (no entry here), which 401'd every unsubscribe click.
+[functions.email-unsubscribe]
+verify_jwt = false
+
+# deliverable-publish: get_public is anon-with-token (client viewing a report, no JWT), so the
+# gateway must let unauthenticated requests through; create_and_send authorizes internally via
+# extractUserContext / isServiceRoleRequest.
+[functions.deliverable-publish]
+verify_jwt = false
+
+# contract-scope-extract (Autonomy Spec v0.1, item #5/#7): fired fire-and-forget from the public
+# contract-signing page (src/services/contractSigning.ts) right after a signature finalizes —
+# that page has no logged-in Supabase auth session, only the RPC's own token-hash auth, so there
+# is no JWT to gate on. Self-authorizes narrowly: only acts on a contractId, is idempotent
+# (no-ops if already extracted), and uses the service-role client internally for the actual write.
+[functions.contract-scope-extract]
+verify_jwt = false
+
+[functions.meet-processing-cron]
+verify_jwt = false
+
+[functions.meet-processing-job]
+verify_jwt = false
+
+[functions.payment-reminder-scheduler]
+verify_jwt = false
+
+[functions.phone-dnc]
+verify_jwt = false
+
+[functions.phone-voice-routing]
+verify_jwt = false
+
+[functions.proposal-signed-pdf]
+verify_jwt = false
+
+[functions.qbo-oauth-start]
+verify_jwt = false
+
+[functions.qbo-webhook]
+verify_jwt = false
+
+[functions.recurring-invoice-generator]
+verify_jwt = false
+
+[functions.report-email-sender]
+verify_jwt = false
+
+[functions.report-export-worker]
+verify_jwt = false
+
+[functions.report-scheduler]
+verify_jwt = false
+
+[functions.resend-webhook]
+verify_jwt = false
+
+[functions.sam-gov-alert-cron]
+verify_jwt = false
+
+[functions.scorecard-submit]
+verify_jwt = false
+
+[functions.signature-expiration-processor]
+verify_jwt = false
+
+# The business website's server-side submission sink POSTs signed envelopes here with no apikey; the
+# function verifies X-Submission-Signature (HMAC-SHA256, SITE_WEBHOOK_SECRET) on the raw body
+# instead of a JWT. Without this block the next CLI deploy would default verify_jwt to true.
+[functions.site-lead-intake]
+verify_jwt = false
+
+[functions.signature-reminder-scheduler]
+verify_jwt = false
+
+[functions.support-ticket-notify]
+verify_jwt = false
+
+[functions.survey-submit]
+verify_jwt = false
+
+# Read-only Resend lookup. Verifies its own service-role bearer, so the gateway check is off
+# for the same reason as the other service-role callers above.
+[functions.email-delivery-status]
+verify_jwt = false
+
+[functions.agent-liveness-alarm]
+verify_jwt = false
+
+[functions.ai-failure-watch]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+# Posted to by the supervisors on the workstation, which have no Supabase JWT — they authenticate
+# with SUPERVISOR_REPORT_KEY, checked fail-closed inside the function.
+[functions.agent-supervisor-report]
+verify_jwt = false
+
+[functions.twilio-mirror-sync]
+verify_jwt = false
+
+[functions.twilio-sms-inbound]
+verify_jwt = false
+
+# Twilio calls this when Clara's primary voice webhook fails — i.e. when her tunnel is down. It
+# must answer without any credential, or the caller hears Twilio's error tone instead of an apology.
+[functions.twilio-voice-fallback]
+verify_jwt = false
+
+[functions.twilio-sms-status]
+verify_jwt = false
+
+[functions.twilio-voice-status]
+verify_jwt = false
+
+[functions.webchat-api]
+verify_jwt = false
+
+[functions.teams-meeting-processor]
+verify_jwt = false
+
+[functions.microsoft-mail]
+verify_jwt = true
+
+[functions.microsoft-calendar]
+verify_jwt = true
+
+# Browser-only (SuperAdmin JWT, re-checked in code); the gateway check is a free first gate.
+[functions.system-health]
+verify_jwt = true
+
+[functions.booking-microsoft-sync]
+verify_jwt = false
+
+
+# These four were deployed with verify_jwt = false but had no entry here, so a CLI deploy would
+# have flipped them to true. Each authenticates in code: appointment-reminder-scheduler is cron-only
+# (X-Cron-Secret, no JWT, so true would break the cron call); twilio-numbers has a cron action
+# plus a SuperAdmin check; resend-domains / resend-provider resolve the caller and check permission.
+[functions.appointment-reminder-scheduler]
+verify_jwt = false
+
+[functions.twilio-numbers]
+verify_jwt = false
+
+[functions.resend-domains]
+verify_jwt = false
+
+[functions.resend-provider]
+verify_jwt = false
+
+# vault-sync authenticates in code: X-Vault-Sync-Key from the Linux box's sync job (no JWT),
+# or a user JWT with memory.sync. The gateway check would reject the key-only calls.
+[functions.vault-sync]
+verify_jwt = false
+
+# Agent Health dashboard: admin-only provider usage/subscription reader. Called from the browser with
+# the user's JWT; the function also checks SuperAdmin / ai_agents.manage itself.
+[functions.ai-provider-usage]
+verify_jwt = true
+
+# agent-settings-get verifies the caller's JWT in code (extractUserContext → auth.getUser) and
+# pins agent accounts to their own settings, like project-files and agent-thread which the agents
+# also call.
+[functions.agent-settings-get]
+verify_jwt = false
+
+[functions.friday-ticket-triage]
+verify_jwt = false
+
+[functions.friday-cr-triage]
+verify_jwt = false
+
+[functions.friday-clarify-watch]
+verify_jwt = false
+
+[functions.friday-clarify-silence-sweep]
+verify_jwt = false
+
+[functions.friday-portal-updates]
+verify_jwt = false
+
+[functions.friday-weekly-client-update]
+verify_jwt = false
+
+[functions.friday-release-approvals]
+verify_jwt = false
+
+[functions.friday-website-monitoring]
+verify_jwt = false
+
+[functions.friday-site-security-sweep]
+verify_jwt = false
+
+[functions.friday-client-health-report]
+verify_jwt = false

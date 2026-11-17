@@ -1,0 +1,238 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { User, ChevronDown, PanelRight, PanelRightClose, MoreVertical, UserPlus, Check } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePermission } from '../../hooks/usePermission';
+import { updateConversationStatus, assignConversation } from '../../services/conversations';
+import { getUsers } from '../../services/users';
+import type { Conversation, ConversationStatus, User as UserType } from '../../types';
+import { getInitials } from '../../utils/formatters';
+import { AnchoredMenu } from '../shared/AnchoredMenu';
+
+interface ConversationHeaderProps {
+  conversation: Conversation;
+  onConversationUpdate: () => void;
+  onToggleContactPanel: () => void;
+  showContactPanel: boolean;
+}
+
+const STATUS_OPTIONS: { value: ConversationStatus; label: string; color: string }[] = [
+  { value: 'open', label: 'Open', color: 'bg-green-500' },
+  { value: 'pending', label: 'Pending', color: 'bg-yellow-500' },
+  { value: 'closed', label: 'Closed', color: 'bg-hud-cream-dim' },
+];
+
+export function ConversationHeader({
+  conversation,
+  onConversationUpdate,
+  onToggleContactPanel,
+  showContactPanel,
+}: ConversationHeaderProps) {
+  const { user } = useAuth();
+  const canAssign = usePermission('conversations.assign');
+  const canChangeStatus = usePermission('conversations.close');
+
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showAssignMenu, setShowAssignMenu] = useState(false);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  const contact = conversation.contact;
+  const contactName = contact
+    ? `${contact.first_name} ${contact.last_name}`.trim()
+    : 'Unknown';
+
+  const currentStatus = STATUS_OPTIONS.find((s) => s.value === conversation.status) || STATUS_OPTIONS[0];
+
+  useEffect(() => {
+    async function loadUsers() {
+      if (!showAssignMenu || !user?.organization_id) return;
+
+      try {
+        setLoadingUsers(true);
+        const data = await getUsers(user.organization_id);
+        setUsers(data.filter((u) => u.status === 'active'));
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    }
+    loadUsers();
+  }, [showAssignMenu, user?.organization_id]);
+
+  const handleStatusChange = async (status: ConversationStatus) => {
+    if (!user?.id) return;
+
+    try {
+      await updateConversationStatus(conversation.id, status, user.id);
+      onConversationUpdate();
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    } finally {
+      setShowStatusMenu(false);
+    }
+  };
+
+  const handleAssign = async (userId: string | null) => {
+    if (!user?.id) return;
+
+    try {
+      await assignConversation(conversation.id, userId, user.id);
+      onConversationUpdate();
+    } catch (error) {
+      console.error('Failed to assign conversation:', error);
+    } finally {
+      setShowAssignMenu(false);
+    }
+  };
+
+  return (
+    <div className="px-4 py-3 border-b border-hud-bg-elev bg-hud-bg-card flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-hud-cream-mute flex items-center justify-center text-white font-medium">
+          {getInitials(contactName)}
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/contacts/${conversation.contact_id}`}
+              className="font-semibold text-white hover:text-hud-gold-soft transition-colors"
+            >
+              {contactName}
+            </Link>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-hud-cream-dim">
+            <span>{contact?.email || contact?.phone || 'No contact info'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <button
+            onClick={() => canChangeStatus && setShowStatusMenu(!showStatusMenu)}
+            disabled={!canChangeStatus}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
+              canChangeStatus
+                ? 'border-hud-cream-mute hover:bg-hud-bg-elev cursor-pointer'
+                : 'border-hud-bg-elev cursor-default'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${currentStatus.color}`} />
+            <span className="text-sm font-medium text-hud-cream-soft">{currentStatus.label}</span>
+            {canChangeStatus && <ChevronDown size={14} className="text-hud-cream-mute" />}
+          </button>
+
+          {showStatusMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowStatusMenu(false)}
+              />
+              <AnchoredMenu className="bg-hud-bg-card border border-hud-cream-mute rounded-lg shadow-lg z-50 min-w-[140px]">
+                {STATUS_OPTIONS.map((status) => (
+                  <button
+                    key={status.value}
+                    onClick={() => handleStatusChange(status.value)}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-hud-bg-elev first:rounded-t-lg last:rounded-b-lg ${
+                      status.value === conversation.status ? 'bg-hud-bg-elev' : ''
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${status.color}`} />
+                    <span className="text-sm text-hud-cream-soft">{status.label}</span>
+                    {status.value === conversation.status && (
+                      <Check size={14} className="ml-auto text-hud-gold-soft" />
+                    )}
+                  </button>
+                ))}
+              </AnchoredMenu>
+            </>
+          )}
+        </div>
+
+        <div className="relative">
+          <button
+            onClick={() => canAssign && setShowAssignMenu(!showAssignMenu)}
+            disabled={!canAssign}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
+              canAssign
+                ? 'border-hud-cream-mute hover:bg-hud-bg-elev cursor-pointer'
+                : 'border-hud-bg-elev cursor-default'
+            }`}
+          >
+            {conversation.assigned_user ? (
+              <>
+                <div className="w-5 h-5 rounded-full bg-hud-cream-mute flex items-center justify-center text-[10px] font-medium text-white">
+                  {getInitials(conversation.assigned_user.name)}
+                </div>
+                <span className="text-sm text-hud-cream-soft">{conversation.assigned_user.name}</span>
+              </>
+            ) : (
+              <>
+                <UserPlus size={16} className="text-hud-cream-mute" />
+                <span className="text-sm text-hud-cream-dim">Unassigned</span>
+              </>
+            )}
+            {canAssign && <ChevronDown size={14} className="text-hud-cream-mute" />}
+          </button>
+
+          {showAssignMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowAssignMenu(false)}
+              />
+              <AnchoredMenu className="bg-hud-bg-card border border-hud-cream-mute rounded-lg shadow-lg z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                <button
+                  onClick={() => handleAssign(null)}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-hud-bg-elev rounded-t-lg"
+                >
+                  <UserPlus size={16} className="text-hud-cream-mute" />
+                  <span className="text-sm text-hud-cream-soft">Unassign</span>
+                </button>
+                <div className="border-t border-hud-bg-elev" />
+                {loadingUsers ? (
+                  <div className="px-4 py-3 text-sm text-hud-cream-dim">Loading...</div>
+                ) : (
+                  users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleAssign(u.id)}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-hud-bg-elev last:rounded-b-lg ${
+                        u.id === conversation.assigned_user_id ? 'bg-hud-bg-elev' : ''
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-hud-cream-mute flex items-center justify-center text-xs font-medium text-white">
+                        {getInitials(u.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-white truncate">{u.name}</div>
+                        <div className="text-xs text-hud-cream-dim truncate">{u.email}</div>
+                      </div>
+                      {u.id === conversation.assigned_user_id && (
+                        <Check size={14} className="text-hud-gold-soft" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </AnchoredMenu>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={onToggleContactPanel}
+          className="p-2 rounded-lg hover:bg-hud-bg-elev transition-colors"
+          title={showContactPanel ? 'Hide contact panel' : 'Show contact panel'}
+        >
+          {showContactPanel ? (
+            <PanelRightClose size={20} className="text-hud-cream-dim" />
+          ) : (
+            <PanelRight size={20} className="text-hud-cream-dim" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

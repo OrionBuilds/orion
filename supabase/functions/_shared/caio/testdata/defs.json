@@ -1,0 +1,754 @@
+{
+"feeds": {
+"9": [
+"decisions",
+"evidence"
+],
+"10": [
+"approved_tools"
+],
+"11": [
+"risks",
+"ai_systems"
+],
+"17": [
+"training"
+],
+"29": [
+"actions",
+"decisions"
+]
+},
+"defs": [
+{
+"name": "ACCEPTANCE DATE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "ACCEPTED BY",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "ACCESS REVIEW ID",
+"resolver": "register",
+"target": "access_reviews.access_review_id"
+},
+{
+"name": "ACCESS REVIEW INTERVAL",
+"resolver": "fact",
+"target": "access_review_interval"
+},
+{
+"name": "ACTION ID",
+"resolver": "register",
+"target": "access_reviews.action_id,actions.action_id"
+},
+{
+"name": "ACTION OWNER",
+"resolver": "register",
+"target": "decisions.action_owner,risks.action_owner"
+},
+{
+"name": "ACTION REQUIRED",
+"resolver": "register",
+"target": "actions.action_required"
+},
+{
+"name": "ACTUAL",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "AFFECTED PEOPLE OR PROCESS",
+"resolver": "register",
+"target": "risks.affected_people_or_process"
+},
+{
+"name": "AFFECTED PEOPLE REVIEW",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "AMOUNT",
+"resolver": "register",
+"target": "budget.amount"
+},
+{
+"name": "APPROVAL DATE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVAL REFERENCE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVAL STATUS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVED BY",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVED CAP",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVED PURPOSE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "APPROVER",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "ATTENDANCE STATUS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "AUTONOMY LEVEL",
+"resolver": "register",
+"target": "ai_systems.autonomy_level"
+},
+{
+"name": "BLAST RADIUS",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "BUSINESS OWNER",
+"resolver": "register",
+"target": "ai_systems.business_owner,vendors.business_owner"
+},
+{
+"name": "BUSINESS PURPOSE",
+"resolver": "register",
+"target": "ai_systems.business_purpose"
+},
+{
+"name": "CHANGE",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "CHANGE CONTACT",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "CLIENT LEGAL NAME",
+"resolver": "engagement",
+"target": "client_legal_name"
+},
+{
+"name": "COMPANY ACCOUNT OWNER",
+"resolver": "register",
+"target": "approved_tools.company_account_owner"
+},
+{
+"name": "COMPLETION DATE",
+"resolver": "register",
+"target": "actions.completion_date,training.completion_date"
+},
+{
+"name": "COMPREHENSION CHECK METHOD",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "COMPREHENSION RESULT",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "CONDITIONS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "CONFIDENTIAL CONDITIONS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "CONFIDENTIAL EXAMPLES",
+"resolver": "fact",
+"target": "confidential_examples"
+},
+{
+"name": "CONFIDENTIAL RULE",
+"resolver": "fact",
+"target": "confidential_rule"
+},
+{
+"name": "COST RECORD ID",
+"resolver": "register",
+"target": "budget.cost_record_id"
+},
+{
+"name": "DATA CLASSIFICATION",
+"resolver": "register",
+"target": "ai_systems.data_classification"
+},
+{
+"name": "DATA QUESTIONS CONTACT",
+"resolver": "fact",
+"target": "data_questions_contact"
+},
+{
+"name": "DATA SOURCES",
+"resolver": "register",
+"target": "ai_systems.data_sources"
+},
+{
+"name": "DATE",
+"resolver": "computed",
+"target": "today"
+},
+{
+"name": "DECISION",
+"resolver": "register",
+"target": "opportunities.decision,vendors.decision"
+},
+{
+"name": "DECISION ID",
+"resolver": "register",
+"target": "decisions.decision_id"
+},
+{
+"name": "DECISION MADE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "DECISION MAKER",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "DECISION REQUESTED",
+"resolver": "register",
+"target": "decisions.decision_requested"
+},
+{
+"name": "DELIVERY METHOD",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "DEPENDENCY OR BLOCKER",
+"resolver": "register",
+"target": "actions.dependency_or_blocker"
+},
+{
+"name": "DETECTION TIME",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "DISCLOSURE DECISION",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "DOCUMENT OWNER",
+"resolver": "engagement",
+"target": "register_owner"
+},
+{
+"name": "DUE DATE",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "ENGAGEMENT ID",
+"resolver": "engagement",
+"target": "engagement_code"
+},
+{
+"name": "EVIDENCE ID",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "EVIDENCE ID OR LINK",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "EVIDENCE LINK",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "EXCEPTION APPROVER",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "EXCEPTION ID",
+"resolver": "register",
+"target": "exceptions.exception_id"
+},
+{
+"name": "EXECUTIVE SPONSOR",
+"resolver": "engagement",
+"target": "executive_sponsor"
+},
+{
+"name": "EXISTING CONTROLS",
+"resolver": "register",
+"target": "risks.existing_controls"
+},
+{
+"name": "FAILURE SCENARIO",
+"resolver": "register",
+"target": "risks.failure_scenario"
+},
+{
+"name": "FORECAST",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "HOSTING AND SUBPROCESSORS",
+"resolver": "register",
+"target": "approved_tools.hosting_and_subprocessors"
+},
+{
+"name": "HUMAN CHECKPOINT",
+"resolver": "register",
+"target": "ai_systems.human_checkpoint"
+},
+{
+"name": "IMPACT SCALE",
+"resolver": "fact",
+"target": "impact_scale"
+},
+{
+"name": "INCIDENT CONTACT",
+"resolver": "fact",
+"target": "incident_contact"
+},
+{
+"name": "INCIDENT ID",
+"resolver": "register",
+"target": "incidents.incident_id"
+},
+{
+"name": "INHERENT IMPACT",
+"resolver": "register",
+"target": "risks.inherent_impact"
+},
+{
+"name": "INHERENT LIKELIHOOD",
+"resolver": "register",
+"target": "risks.inherent_likelihood"
+},
+{
+"name": "KPI RECORD ID",
+"resolver": "register",
+"target": "kpi_log.kpi_record_id"
+},
+{
+"name": "LEGAL OR PRIVACY REVIEWER",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "LIKELIHOOD SCALE",
+"resolver": "fact",
+"target": "likelihood_scale"
+},
+{
+"name": "MILESTONE OR TASK",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "NEXT REVIEW",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "OFF SWITCH AND FALLBACK",
+"resolver": "register",
+"target": "ai_systems.off_switch_and_fallback"
+},
+{
+"name": "OFFBOARDING RULE",
+"resolver": "fact",
+"target": "offboarding_rule"
+},
+{
+"name": "ONE SENTENCE SUMMARY",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "OPEN QUESTIONS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "OWNER",
+"resolver": "register",
+"target": "access_reviews.owner,actions.owner,evidence.owner,kpi_log.owner,obligations.owner,opportunities.owner"
+},
+{
+"name": "PASS STANDARD",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "PEOPLE COVERED",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "PERIOD END",
+"resolver": "register",
+"target": "budget.period_end,kpi_log.period_end"
+},
+{
+"name": "PERIOD START",
+"resolver": "register",
+"target": "budget.period_start,kpi_log.period_start"
+},
+{
+"name": "PERMITTED DATA",
+"resolver": "register",
+"target": "approved_tools.permitted_data"
+},
+{
+"name": "PERSON",
+"resolver": "register",
+"target": "training.person"
+},
+{
+"name": "PERSONAL ACCOUNT RULE",
+"resolver": "fact",
+"target": "personal_account_rule"
+},
+{
+"name": "PLANNED",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "POLICY PURPOSE",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "POLICY VERSION",
+"resolver": "register",
+"target": "training.policy_version"
+},
+{
+"name": "POTENTIAL HARM",
+"resolver": "register",
+"target": "risks.potential_harm"
+},
+{
+"name": "PROCEDURE CHANGES",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "PROCESS CHAMPION",
+"resolver": "fact",
+"target": "process_champion"
+},
+{
+"name": "PROHIBITED DATA",
+"resolver": "register",
+"target": "approved_tools.prohibited_data"
+},
+{
+"name": "PUBLIC CONDITIONS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "PUBLIC EXAMPLES",
+"resolver": "fact",
+"target": "public_examples"
+},
+{
+"name": "PUBLIC RULE",
+"resolver": "fact",
+"target": "public_rule"
+},
+{
+"name": "REAL TASK",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "REASON",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "RECIPIENTS",
+"resolver": "register",
+"target": "ai_systems.recipients"
+},
+{
+"name": "RECOMMENDATION",
+"resolver": "register",
+"target": "decisions.recommendation"
+},
+{
+"name": "REFRESHER DUE",
+"resolver": "register",
+"target": "training.refresher_due"
+},
+{
+"name": "REFRESHER INTERVAL",
+"resolver": "fact",
+"target": "refresher_interval"
+},
+{
+"name": "REMAINING",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "REMEDIATION NEEDED",
+"resolver": "register",
+"target": "training.remediation_needed"
+},
+{
+"name": "REMEDIATION OWNER",
+"resolver": "register",
+"target": "training.remediation_owner"
+},
+{
+"name": "REMOVAL TIMEFRAME",
+"resolver": "fact",
+"target": "removal_timeframe"
+},
+{
+"name": "RESIDUAL IMPACT",
+"resolver": "register",
+"target": "risks.residual_impact"
+},
+{
+"name": "RESIDUAL LIKELIHOOD",
+"resolver": "register",
+"target": "risks.residual_likelihood"
+},
+{
+"name": "RESTRICTED CONDITIONS",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "RESTRICTED EXAMPLES",
+"resolver": "fact",
+"target": "restricted_examples"
+},
+{
+"name": "RESTRICTED RULE",
+"resolver": "fact",
+"target": "restricted_rule"
+},
+{
+"name": "RETENTION AND DELETION",
+"resolver": "register",
+"target": "approved_tools.retention_and_deletion,vendors.retention_and_deletion"
+},
+{
+"name": "RETIREMENT OWNER",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "REVERSIBILITY",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "REVIEW DATE",
+"resolver": "register",
+"target": "access_reviews.review_date,decisions.review_date,exceptions.review_date,kpi_log.review_date"
+},
+{
+"name": "REVIEW EVIDENCE LINK",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "REVIEW EXPECTATIONS",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "REVIEW INTERVAL",
+"resolver": "fact",
+"target": "review_cadence"
+},
+{
+"name": "REVIEWER NAME",
+"resolver": "human",
+"target": ""
+},
+{
+"name": "RISK ID",
+"resolver": "register",
+"target": "risks.risk_id"
+},
+{
+"name": "RISK TIER",
+"resolver": "register",
+"target": "ai_systems.risk_tier,opportunities.risk_tier,risks.risk_tier"
+},
+{
+"name": "RISK TIER RULE",
+"resolver": "fact",
+"target": "risk_tier_rule"
+},
+{
+"name": "ROLE OR TEAM",
+"resolver": "register",
+"target": "training.role_or_team"
+},
+{
+"name": "RULE ILLUSTRATED",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "SECRET STORAGE REFERENCE",
+"resolver": "register",
+"target": "access_reviews.secret_storage_reference"
+},
+{
+"name": "SESSION OR MODULE",
+"resolver": "register",
+"target": "training.session_or_module"
+},
+{
+"name": "SEVERITY",
+"resolver": "register",
+"target": "incidents.severity"
+},
+{
+"name": "SHADOW USE PROCESS",
+"resolver": "fact",
+"target": "shadow_use_process"
+},
+{
+"name": "STATUS",
+"resolver": "computed",
+"target": "doc_status"
+},
+{
+"name": "SUPPORT ROUTE",
+"resolver": "fact",
+"target": "support_contact"
+},
+{
+"name": "SYSTEM ID",
+"resolver": "computed",
+"target": "system_key"
+},
+{
+"name": "SYSTEM NAME",
+"resolver": "register",
+"target": "ai_systems.system_name"
+},
+{
+"name": "TECHNICAL OWNER",
+"resolver": "register",
+"target": "ai_systems.technical_owner"
+},
+{
+"name": "TOOL AND ACCOUNT TIER",
+"resolver": "register",
+"target": "approved_tools.tool_and_account_tier"
+},
+{
+"name": "TOOL ID",
+"resolver": "register",
+"target": "approved_tools.tool_id"
+},
+{
+"name": "TOOL REQUEST CONTACT",
+"resolver": "fact",
+"target": "tool_request_contact"
+},
+{
+"name": "TRAINER",
+"resolver": "register",
+"target": "training.trainer"
+},
+{
+"name": "TRAINING DATE",
+"resolver": "register",
+"target": "training.training_date"
+},
+{
+"name": "TRAINING FREQUENCY",
+"resolver": "fact",
+"target": "refresher_interval"
+},
+{
+"name": "TRAINING RECORD ID",
+"resolver": "register",
+"target": "training.training_record_id"
+},
+{
+"name": "TRAINING USE TERMS",
+"resolver": "register",
+"target": "approved_tools.training_use_terms"
+},
+{
+"name": "TREATMENT DECISION",
+"resolver": "register",
+"target": "risks.treatment_decision"
+},
+{
+"name": "VENDOR AND MODEL",
+"resolver": "register",
+"target": "ai_systems.vendor_and_model"
+},
+{
+"name": "VENDOR ID",
+"resolver": "register",
+"target": "vendors.vendor_id"
+},
+{
+"name": "VERSION",
+"resolver": "computed",
+"target": "doc_version"
+},
+{
+"name": "WHAT HAPPENED",
+"resolver": "register",
+"target": "incidents.what_happened"
+},
+{
+"name": "WORK COVERED",
+"resolver": "llm",
+"target": ""
+},
+{
+"name": "YES NO",
+"resolver": "human",
+"target": ""
+}
+]
+}

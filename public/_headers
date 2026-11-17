@@ -1,0 +1,66 @@
+# Netlify header rules.
+#
+# 2026-07-31: the production domain was observed serving index.html from an
+# ~1-year-TTL edge cache with no _headers file in the repo — meaning a
+# site-level Netlify setting (dashboard custom headers or asset optimization)
+# was overriding Netlify's own default, so new deploys weren't visible on the
+# live domain for several minutes after publishing. Committed _headers rules
+# take priority over dashboard-configured ones for the same path, so this
+# pins the correct policy in version control instead of leaving it to a
+# setting nobody can see in a diff.
+#
+# Rules apply in file order; a later matching rule overrides an earlier one
+# for the same header on overlapping paths. Keep the general rule first and
+# the fingerprinted-assets override after it.
+#
+# Netlify-CDN-Cache-Control controls Netlify's OWN edge cache and can diverge
+# from the plain Cache-Control browsers see (that's what was happening here —
+# the response's Cache-Control already said max-age=0, but Netlify's edge
+# Cache-Status header still showed an ~1yr ttl, meaning its internal cache
+# policy is a separate channel that a plain Cache-Control override doesn't
+# touch). Set both explicitly so neither can drift independently.
+
+# Security headers (added 2026-08-25, OWASP A05 scan). The site previously shipped none:
+# no CSP, no HSTS, no framing or MIME-sniffing protection.
+#
+# The CSP keeps 'unsafe-inline'/'unsafe-eval' in script-src because the bundle needs them
+# today (Tailwind/inline style attributes, `new Function` in src/utils/formulaEvaluator.ts,
+# pdfjs/tiptap workers). It is therefore not an XSS *cure* — its job here is to pin the
+# origins that may serve script, and to close the sinks that need no allowance at all:
+# object-src 'none' (no Flash/embed), base-uri 'self' (no <base> hijack of relative URLs),
+# form-action 'self' (a stolen form cannot POST to an attacker), frame-ancestors (clickjacking).
+# Nonce-based script-src is the follow-up that makes 'unsafe-inline' droppable.
+#
+# connect-src is deliberately broad (https: wss:): the Supabase project URL, Vapi, Kie,
+# Google APIs and the realtime/yjs sockets are all build-time env or per-tenant values that
+# a static header file cannot enumerate. It still forbids plaintext http:// beacons.
+#
+# frame-ancestors 'self' would break the embeddable booking/forms/survey widgets, which
+# iframe /book/*, /f/* and /s/* into customer sites — those paths get their own rule below.
+# X-Frame-Options is intentionally NOT set: it has no per-path "allow any origin" value to
+# override with, and every browser that matters honours frame-ancestors.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  Netlify-CDN-Cache-Control: public, max-age=0, must-revalidate
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.hcaptcha.com https://*.hcaptcha.com https://cdn.vapi.ai; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: https://*.hcaptcha.com; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(self), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+
+# Embeddable surfaces: the widgets in packages/{booking,forms}-widget iframe these paths into
+# arbitrary customer domains, so they must stay framable. Everything else in the policy above
+# is repeated verbatim because a later rule replaces the whole header, not one directive.
+/book/*
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.hcaptcha.com https://*.hcaptcha.com https://cdn.vapi.ai; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: https://*.hcaptcha.com; upgrade-insecure-requests
+/f/*
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.hcaptcha.com https://*.hcaptcha.com https://cdn.vapi.ai; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: https://*.hcaptcha.com; upgrade-insecure-requests
+/s/*
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.hcaptcha.com https://*.hcaptcha.com https://cdn.vapi.ai; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob: https://*.hcaptcha.com; upgrade-insecure-requests
+
+# Vite fingerprints every build asset (index-<hash>.js), so a new deploy
+# always emits new filenames — safe to cache these forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  Netlify-CDN-Cache-Control: public, max-age=31536000, immutable

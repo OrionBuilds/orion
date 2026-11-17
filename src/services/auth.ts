@@ -1,0 +1,111 @@
+import { supabase } from '../lib/supabase';
+import type { UserWithDetails } from '../types';
+
+export async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+export async function getCurrentSession() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return session;
+}
+
+export async function getCurrentUser(): Promise<UserWithDetails | null> {
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  if (!authUser) return null;
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select(`
+      *,
+      role:roles(*),
+      department:departments(*)
+    `)
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  if (error || !user) return null;
+
+  // Load the user's *active* organization. For SuperAdmin with a
+  // super_admin_active_org_id set, that overrides; otherwise the
+  // home organization_id wins. Mirrors the get_user_org_id() SQL fn.
+  const isSuperAdmin = user.role?.name === 'SuperAdmin';
+  const activeOrgId =
+    (isSuperAdmin && user.super_admin_active_org_id) || user.organization_id;
+
+  const { data: organization } = await supabase
+    .from('organizations')
+    .select('id, name, slug, display_name, logo_url, created_at')
+    .eq('id', activeOrgId)
+    .maybeSingle();
+
+  const { data: permissions } = await supabase
+    .from('role_permissions')
+    .select('permissions(key)')
+    .eq('role_id', user.role_id);
+
+  const permissionKeys = permissions?.flatMap((p: { permissions: { key: string }[] | { key: string } }) =>
+    Array.isArray(p.permissions) ? p.permissions.map(perm => perm.key) : [p.permissions.key]
+  ) || [];
+
+  return {
+    ...user,
+    // Rebind organization_id to the *active* org so every existing call
+    // site that filters Supabase queries by user.organization_id sends
+    // the active tenant's UUID. The original home org is preserved on
+    // home_organization_id for the OrgSwitcher's "is this my baseline?"
+    // comparison.
+    organization_id: activeOrgId,
+    home_organization_id: user.organization_id,
+    organization: organization ?? null,
+    permissions: permissionKeys,
+  } as UserWithDetails;
+}
+
+/** Set when the user signs in with Google; GoogleWorkspaceConnectPrompt offers the Workspace connection once. */
+export const GOOGLE_CONNECT_PENDING_KEY = 'orion_google_connect_pending';
+
+export async function signInWithGoogle(redirectTo?: string) {
+  // Only a fresh sign-in (no explicit return path) offers the connection; re-auth from the modal does not.
+  if (!redirectTo) { try { localStorage.setItem(GOOGLE_CONNECT_PENDING_KEY, '1'); } catch { /* storage unavailable */ } }
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectTo || window.location.origin,
+    },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Sign in with Microsoft. Our own flow (not Supabase's azure provider) so the same step also stores
+ * the Graph tokens: signing in connects mail, calendar, contacts, SharePoint and OneDrive.
+ */
+export async function signInWithMicrosoft(redirectTo?: string) {
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-oauth-start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
+    body: JSON.stringify({ mode: 'login', redirect_uri: redirectTo || `${window.location.origin}/` }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.authUrl) throw new Error(body.error || 'Microsoft sign-in is unavailable');
+  try { localStorage.setItem('orion_login_provider', 'microsoft'); } catch { /* storage unavailable */ }
+  window.location.assign(body.authUrl);
+}
+
+export function onAuthStateChange(callback: (event: string, session: unknown) => void) {
+  return supabase.auth.onAuthStateChange(callback);
+}

@@ -1,0 +1,487 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────
+   ORION OS colour system (see design.md): charcoal neutrals, red
+   primary, teal secondary, orange accent. The variables keep their legacy
+   `--hud-*` names (and the gold/cream/plum/rust role names) so the thousands of
+   existing `hud-*` Tailwind classes re-colour without touching components:
+     gold  = primary red     cream = text on charcoal   plum = error
+     rust  = warning         emerald = success          teal = secondary
+   `--hud-*-rgb` triplets exist alongside the hex tokens so Tailwind's
+   `/opacity` modifier (bg-hud-emerald/10 etc, defined in tailwind.config.js
+   as rgb(var(--x-rgb) / <alpha-value>)) keeps working against this palette.
+   ───────────────────────────────────────────────────────────────────── */
+:root {
+  /* NOTE: the -rgb triplets are SPACE-separated (not comma-separated) — Tailwind's
+     rgb(var(--x-rgb) / <alpha-value>) opacity-modifier trick mixes them with a slash
+     for alpha, and CSS doesn't allow mixing comma-separated channels with a slash alpha. */
+  --hud-bg-deep:    #0d0e10;  --hud-bg-deep-rgb:    13 14 16;
+  --hud-bg-mid:     #0d0e10;  --hud-bg-mid-rgb:     13 14 16;
+  --hud-bg-card:    #141517;  --hud-bg-card-rgb:    20 21 23;
+  --hud-bg-elev:    #232528;  --hud-bg-elev-rgb:    35 37 40;
+
+  --hud-cream:      #f3f3f4;  --hud-cream-rgb:      243 243 244;
+  --hud-cream-soft: #e4e5e7;  --hud-cream-soft-rgb: 228 229 231;
+  --hud-cream-dim:  #b1b4ba;  --hud-cream-dim-rgb:  177 180 186;
+  --hud-cream-mute: #85888e;  --hud-cream-mute-rgb: 133 136 142;
+
+  --hud-gold:       #dc2626;  --hud-gold-rgb:       220 38 38;
+  --hud-gold-soft:  #f87171;  --hud-gold-soft-rgb:  248 113 113;
+  --hud-gold-deep:  #b91c1c;  --hud-gold-deep-rgb:  185 28 28;
+  --hud-teal:       #14b8a6;  --hud-teal-rgb:       20 184 166;
+
+  --hud-emerald:      #22c55e; --hud-emerald-rgb:      34 197 94;
+  --hud-emerald-dim:  #15803d; --hud-emerald-dim-rgb:  21 128 61;
+  --hud-plum:         #ef4444; --hud-plum-rgb:         239 68 68;
+  --hud-rust:         #f59e0b; --hud-rust-rgb:         245 158 11;
+
+  --hud-line:       rgba(220, 38, 38, 0.40);
+  --hud-line-soft:  rgba(255, 255, 255, 0.08);
+  --hud-line-deep:  rgba(255, 255, 255, 0.04);
+
+  --hud-mono: "Cascadia Code", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --hud-glass: rgba(13, 14, 16, 0.82);
+  --hud-shadow-1: 0 8px 24px rgba(0,0,0,0.5);
+  --hud-shadow-2: 0 20px 60px rgba(0,0,0,0.6);
+
+  /* Neutral scales (space-separated RGB) behind Tailwind's gray-* and slate-* classes.
+     Light values apply on public pages; the dark shell overrides them below. */
+  --bl-gray-50: 249 250 251;  --bl-gray-100: 243 244 246; --bl-gray-200: 229 231 235;
+  --bl-gray-300: 209 213 219; --bl-gray-400: 156 163 175; --bl-gray-500: 95 103 117;
+  --bl-gray-600: 75 85 99;    --bl-gray-700: 55 65 81;    --bl-gray-800: 31 41 55;
+  --bl-gray-900: 17 24 39;    --bl-gray-950: 3 7 18;
+  --bl-slate-50: 248 250 252; --bl-slate-100: 241 245 249; --bl-slate-200: 226 232 240;
+  --bl-slate-300: 203 213 225; --bl-slate-400: 148 163 184; --bl-slate-500: 91 104 124;
+  --bl-slate-600: 71 85 105;  --bl-slate-700: 51 65 85;   --bl-slate-800: 30 41 59;
+  --bl-slate-900: 15 23 42;   --bl-slate-950: 2 6 23;
+}
+
+/* Inside the dark shell and its overlay layer, gray and slate collapse into one charcoal scale. */
+.hud-body,
+#overlay-root {
+  --bl-gray-50: 250 250 250;  --bl-gray-100: 243 243 244; --bl-gray-200: 228 229 231;
+  --bl-gray-300: 208 210 214; --bl-gray-400: 177 180 186; --bl-gray-500: 133 136 142;
+  --bl-gray-600: 85 87 91;    --bl-gray-700: 35 37 40;    --bl-gray-800: 20 21 23;
+  --bl-gray-900: 13 14 16;    --bl-gray-950: 8 9 10;
+  --bl-slate-50: 250 250 250; --bl-slate-100: 243 243 244; --bl-slate-200: 228 229 231;
+  --bl-slate-300: 208 210 214; --bl-slate-400: 177 180 186; --bl-slate-500: 133 136 142;
+  --bl-slate-600: 85 87 91;   --bl-slate-700: 35 37 40;   --bl-slate-800: 20 21 23;
+  --bl-slate-900: 13 14 16;   --bl-slate-950: 8 9 10;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* Root background: flat charcoal (no glow, grid or scanlines). */
+.hud-body {
+  position: relative;
+  min-height: 100vh;
+  background: var(--hud-bg-deep);
+}
+/* Excludes direct children carrying Tailwind's own `fixed` utility (Sidebar, CommandPalette,
+   ReAuthModal, OpenOfficeLink) — this rule used to stamp position:relative
+   on ALL direct children unconditionally, which silently beat their own `fixed` class in the
+   cascade (equal specificity, later source order) and knocked every one of them out of
+   fixed-viewport positioning. Sidebar only still looked right because hud-body is a flex
+   container and a relatively-positioned flex item with an explicit width reproduces a fixed
+   sidebar's look by coincidence; OpenOfficeLink and the command palette had no such luck — the
+   button rendered inline near the top of the page instead of pinned bottom-right, and
+   Ctrl+K floated top-right instead of centering. */
+.hud-body > *:not([class~="fixed"]) { position: relative; z-index: 2; }
+
+/* Solid primary-red controls (`bg-hud-gold*`) were written for the old light-cyan accent and carry dark text
+   (`text-hud-bg-deep|mid|card`). On the red primary that text is unreadable, so those controls get white text. */
+:is([class~="bg-hud-gold"], [class~="bg-hud-gold-deep"], [class~="bg-hud-gold-soft"]):is(
+    [class~="text-hud-bg-deep"], [class~="text-hud-bg-mid"], [class~="text-hud-bg-card"]
+  ) {
+  color: #fff;
+}
+
+/* The viewport corner brackets were part of the old HUD look; the markup stays, the effect is off. */
+.hud-corner { display: none; }
+
+/* Glass — floating/overlay chrome only (topbar, dropdowns, modals), not static content cards. */
+.hud-glass-panel {
+  background: var(--hud-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ── Form-control defaults for the dark shell and its overlay layer (#overlay-root, Portal.tsx) ──
+   Hundreds of fields carry no background class, so the browser painted them white while the
+   text was white/cream — invisible text and placeholders. Every selector here is wrapped so its
+   specificity stays at one element (0,0,1 / 0,0,2), the same as preflight's: it beats preflight
+   and the UA sheet, and any Tailwind utility on the field (bg-*, text-*, placeholder-*) still wins.
+   Public pages render outside both roots and are untouched. */
+@layer base {
+  /* Native date/time pickers, select popups, scrollbars and autofill render dark. */
+  .hud-body,
+  #overlay-root {
+    color-scheme: dark;
+  }
+
+  :where(.hud-body, #overlay-root)
+    :is(
+      input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='button'], [type='submit'], [type='reset'], [type='image'], [type='hidden'])),
+      textarea,
+      select
+    ) {
+    background-color: rgb(var(--hud-bg-elev-rgb));
+    color: var(--hud-cream);
+  }
+
+  :where(.hud-body, #overlay-root) :where(input, textarea, select):disabled {
+    color: rgb(var(--hud-cream-dim-rgb));
+  }
+
+  :where(.hud-body, #overlay-root) :is(input, textarea)::placeholder {
+    color: rgb(var(--hud-cream-dim-rgb));
+  }
+
+  /* Native dropdown lists ignore the select's colours on some platforms (white on white). */
+  :where(.hud-body, #overlay-root) :is(option, optgroup) {
+    background-color: rgb(var(--hud-bg-elev-rgb));
+    color: var(--hud-cream);
+  }
+
+  /* Default selection highlight is a light blue that hides white text. Text keeps its colour. */
+  :where(.hud-body, #overlay-root) ::selection {
+    background-color: rgb(var(--hud-gold-rgb) / 0.35);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #55575b rgba(20, 21, 23, 0.5);
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(20, 21, 23, 0.5);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #55575b;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #85888e;
+}
+
+.proposal-content {
+  color: #e4e5e7;
+  line-height: 1.7;
+}
+.proposal-content h1,
+.proposal-content h2,
+.proposal-content h3,
+.proposal-content h4,
+.proposal-content h5,
+.proposal-content h6 {
+  color: #f3f3f4;
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+.proposal-content h3 {
+  font-size: 1.125rem;
+}
+.proposal-content p {
+  margin-bottom: 0.75em;
+}
+.proposal-content ul,
+.proposal-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+.proposal-content ul {
+  list-style-type: disc;
+}
+.proposal-content ol {
+  list-style-type: decimal;
+}
+.proposal-content li {
+  margin-bottom: 0.25em;
+}
+.proposal-content strong,
+.proposal-content b {
+  color: #fafafa;
+  font-weight: 600;
+}
+.proposal-content a {
+  color: #f87171;
+  text-decoration: underline;
+}
+.proposal-content blockquote {
+  border-left: 3px solid #232528;
+  padding-left: 1em;
+  color: #b1b4ba;
+  margin: 1em 0;
+}
+.proposal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.proposal-content th,
+.proposal-content td {
+  border: 1px solid #232528;
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.proposal-content th {
+  background: rgba(20, 21, 23, 0.5);
+  color: #f3f3f4;
+  font-weight: 600;
+}
+
+/* A4: docs editor (Tiptap + Yjs co-editing). */
+.docs-editor-content .ProseMirror {
+  color: #e4e5e7;
+  line-height: 1.7;
+  outline: none;
+  min-height: 100%;
+}
+.docs-editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #85888e;
+  pointer-events: none;
+  height: 0;
+}
+.docs-editor-content .ProseMirror h1,
+.docs-editor-content .ProseMirror h2,
+.docs-editor-content .ProseMirror h3 {
+  color: #f3f3f4;
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+.docs-editor-content .ProseMirror h1 {
+  font-size: 1.75rem;
+}
+.docs-editor-content .ProseMirror h2 {
+  font-size: 1.375rem;
+}
+.docs-editor-content .ProseMirror h3 {
+  font-size: 1.125rem;
+}
+.docs-editor-content .ProseMirror p {
+  margin-bottom: 0.75em;
+}
+.docs-editor-content .ProseMirror ul,
+.docs-editor-content .ProseMirror ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+.docs-editor-content .ProseMirror ul {
+  list-style-type: disc;
+}
+.docs-editor-content .ProseMirror ol {
+  list-style-type: decimal;
+}
+.docs-editor-content .ProseMirror blockquote {
+  border-left: 3px solid #232528;
+  padding-left: 1em;
+  color: #b1b4ba;
+  margin: 1em 0;
+}
+.docs-editor-content .ProseMirror pre {
+  background: #0d0e10;
+  border: 1px solid #141517;
+  border-radius: 0.5rem;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+.docs-editor-content .ProseMirror code {
+  background: rgba(35, 37, 40, 0.8);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+}
+.docs-editor-content .ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+.docs-editor-content .ProseMirror a {
+  color: #f87171;
+  text-decoration: underline;
+}
+
+/* @mention pill rendered by the Mention node's default renderHTML. */
+.docs-editor-content .ProseMirror [data-type='mention'] {
+  background: rgba(220, 38, 38, 0.15);
+  color: #f87171;
+  border-radius: 0.25rem;
+  padding: 0.05em 0.3em;
+  font-weight: 500;
+}
+
+/* CollaborationCaret: remote users' cursors + selection highlights. */
+.docs-editor-content .collaboration-carets__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+.docs-editor-content .collaboration-carets__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  color: #0d0e10;
+  padding: 0.15em 0.4em;
+  border-radius: 0.25rem;
+  user-select: none;
+  pointer-events: none;
+}
+.docs-editor-content .collaboration-carets__selection {
+  opacity: 0.25;
+  border-radius: 0.1rem;
+}
+
+/* ── Device-aware foundations (installed app + phone/tablet/desktop) ───────────────────────────
+   The <html> element carries data-device (phone|tablet|desktop), data-orientation, data-nav
+   (drawer|rail|sidebar), data-touch and data-standalone, set by DeviceProvider (src/contexts/DeviceContext). */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --tabbar-h: 3.5rem;
+  /* Space the phone's bottom tab bar takes; pages that size themselves from the viewport subtract it. */
+  --bottom-nav: 0px;
+}
+html[data-device="phone"] { --bottom-nav: calc(var(--tabbar-h) + var(--safe-bottom)); }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* dvh follows the mobile URL bar; the vh line above it in .hud-body is the fallback for old browsers. */
+.hud-body { min-height: 100dvh; }
+body { -webkit-tap-highlight-color: transparent; }
+/* An installed app should not rubber-band or pull-to-refresh the whole shell. */
+html[data-standalone="true"] body { overscroll-behavior-y: none; }
+
+.pt-safe { padding-top: var(--safe-top); }
+.pb-safe { padding-bottom: var(--safe-bottom); }
+.pl-safe { padding-left: var(--safe-left); }
+.pr-safe { padding-right: var(--safe-right); }
+.app-header { height: calc(4rem + var(--safe-top)); padding-top: var(--safe-top); }
+
+/* Touch screens: iOS zooms the page when a focused field is under 16px, and 44px is the minimum comfortable target. */
+@media (pointer: coarse) {
+  html[data-device] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+    font-size: 16px;
+  }
+  html[data-device] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select) {
+    min-height: 44px;
+  }
+  html[data-device] :is([role="menuitem"], .tap-target) { min-height: 44px; }
+  html[data-device] aside nav a { min-height: 44px; }
+  /* Small buttons and links (24px icons, text-xs chips) get an invisible 8px-larger hit area on phones, so a thumb
+     doesn't miss them; the layout doesn't move. */
+  html[data-device="phone"] :is(main, #overlay-root) :is(button, a, [role="button"], [role="tab"]):not(.absolute):not(.fixed):not(.sticky) {
+    position: relative;
+  }
+  html[data-device="phone"] :is(main, #overlay-root) :is(button, a, [role="button"], [role="tab"])::after {
+    content: ''; position: absolute; inset: -8px;
+  }
+}
+/* Actions that only appear on hover cannot be reached by touch: mark them with .reveal-on-touch. */
+@media (hover: none) {
+  .reveal-on-touch { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
+}
+/* Horizontal scrollers that should snap (kanban columns, date strips). */
+.snap-x-row { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.snap-x-row > * { scroll-snap-align: start; }
+
+/* ── Phone density: the app was built desktop-first with p-6/gap-6 chrome nested several levels deep, which at ~400px
+   leaves a narrow column of content. On phones, shrink the big paddings and gaps inside the page and dialogs. ── */
+html[data-device="phone"] :is(main, #overlay-root) :is(.p-5, .p-6, .p-8) { padding: 0.75rem; }
+html[data-device="phone"] :is(main, #overlay-root) :is(.px-5, .px-6, .px-8) { padding-left: 0.75rem; padding-right: 0.75rem; }
+html[data-device="phone"] :is(main, #overlay-root) :is(.py-6, .py-8) { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+html[data-device="phone"] :is(main, #overlay-root) :is(.gap-6, .gap-8) { gap: 0.75rem; }
+html[data-device="phone"] :is(main, #overlay-root) :is(.mb-6, .mb-8) { margin-bottom: 1rem; }
+html[data-device="phone"] :is(main, #overlay-root) :is(.space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; margin-bottom: 0; }
+html[data-device="phone"] main :is(h1.text-2xl, h1.text-3xl) { font-size: 1.375rem; line-height: 1.75rem; }
+
+/* Added by src/lib/phoneEnhancers.ts while on a phone. */
+.phone-wrap { flex-wrap: wrap; row-gap: 0.5rem; }
+.phone-dup-title { display: none; }
+table.phone-cards { display: block; width: 100% !important; min-width: 0 !important; border: 0; }
+table.phone-cards thead { display: none; }
+table.phone-cards tbody { display: block; }
+table.phone-cards tr {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.75rem; margin: 0 0 0.625rem; padding: 0.625rem 0.75rem;
+  border: 1px solid var(--hud-line-soft, rgba(255, 255, 255, 0.08)); border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+table.phone-cards td {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
+  width: auto; padding: 0; border: 0; text-align: left; min-width: 0; white-space: normal;
+}
+table.phone-cards td[data-label]::before {
+  content: attr(data-label);
+  font-size: 0.625rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hud-cream-mute, #8b8b94);
+}
+table.phone-cards td[data-wide], table.phone-cards td[colspan] { grid-column: 1 / -1; }
+table.phone-cards td:empty { display: none; }
+table.phone-cards td > * { max-width: 100%; }
+table.phone-cards tr:has(> td[colspan]) td { align-items: center; text-align: center; }
+
+table.phone-cards td[data-primary] {
+  grid-column: 1 / -1; display: block; padding: 0.1rem 1.75rem 0.4rem 0; margin-bottom: 0.1rem;
+  font-weight: 600; border-bottom: 1px solid var(--hud-line-soft, rgba(255, 255, 255, 0.08));
+}
+table.phone-cards td[data-primary]::before { display: none; }
+/* a lone checkbox cell sits in the card's top-right corner instead of taking its own row */
+table.phone-cards td:has(> input[type="checkbox"]:only-child) { position: absolute; top: 0.6rem; right: 0.6rem; padding: 0; width: auto; }
+table.phone-cards td { overflow-wrap: anywhere; }
+
+/* The kanban board is not offered on phones (the board route redirects to the list), so its toggle goes too. */
+html[data-device="phone"] .board-list-toggle { display: none; }
+
+/* A grid item defaults to min-width:auto, so one long truncating line made a whole column wider than the screen. */
+html[data-device="phone"] main .grid > * { min-width: 0; }
+
+/* Touch scrolling needs no desktop scrollbars (tab strips, panes); content still scrolls. */
+html[data-device="phone"] * { scrollbar-width: none; }
+html[data-device="phone"] *::-webkit-scrollbar { display: none; }
+
+/* ── Readable tinted text ───────────────────────────────────────────────────────────────────────────────────────
+   A colour migration turned "light tint of the hue" text classes (text-red-300, text-yellow-100 ...) into the hue at 15-40%
+   alpha, which is nearly invisible on the dark surfaces (e.g. the body of your own sent emails in Conversations).
+   Map them to solid light tints of the same hue. The app is dark-only (tailwind darkMode = .hud-body *). */
+.text-hud-plum\/40, .hover\:text-hud-plum\/40:hover, .text-hud-plum\/25, .hover\:text-hud-plum\/25:hover { color: #fca5a5; }
+.text-hud-rust\/40, .hover\:text-hud-rust\/40:hover { color: #fcd34d; }
+.text-hud-rust\/25, .hover\:text-hud-rust\/25:hover { color: #fde68a; }
+.text-hud-emerald\/40, .hover\:text-hud-emerald\/40:hover { color: #86efac; }
+.text-hud-teal\/40, .hover\:text-hud-teal\/40:hover { color: #5eead4; }
+.text-hud-teal\/25 { color: #99f6e4; }
+.text-hud-teal\/15 { color: #ccfbf1; }
+.text-hud-gold\/25, .hover\:text-hud-gold\/25:hover { color: #fecaca; }
+.text-hud-gold\/15 { color: #fee2e2; }

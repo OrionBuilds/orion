@@ -1,0 +1,459 @@
+import { useEffect, useState } from 'react';
+import { Plus, Check, Loader2, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { createCustomField, generateFieldKey } from '../services/customFields';
+import { getCustomObjectDefinitions } from '../services/customObjects';
+import type {
+  FormFieldMapping,
+  FormFieldType,
+  CustomField,
+  CustomFieldType,
+  CustomFieldScope,
+  CustomObjectDefinition,
+} from '../types';
+import { Portal } from './shared/Portal';
+
+const BUILTIN_CONTACT_FIELDS: { value: string; label: string }[] = [
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'first_name', label: 'First Name' },
+  { value: 'last_name', label: 'Last Name' },
+  { value: 'company', label: 'Company' },
+  { value: 'source', label: 'Source' },
+];
+
+function suggestCustomFieldType(t: FormFieldType | undefined): CustomFieldType {
+  if (!t) return 'text';
+  switch (t) {
+    case 'textarea': return 'textarea';
+    case 'number': return 'number';
+    case 'monetary': return 'currency';
+    case 'date': return 'date';
+    case 'email': return 'email';
+    case 'phone': return 'phone';
+    case 'website': return 'url';
+    case 'dropdown': case 'radio': return 'select';
+    case 'multi_select': case 'multi_dropdown': case 'checkbox_group':
+      return 'multi_select';
+    case 'checkbox': case 'consent': return 'boolean';
+    case 'file_upload': return 'file';
+    default: return 'text';
+  }
+}
+
+interface MappingPickerProps {
+  value: FormFieldMapping | undefined;
+  onChange: (next: FormFieldMapping | undefined) => void;
+  fieldType?: FormFieldType;
+  fieldLabel?: string;
+  scope?: CustomFieldScope;
+  visibleInProperty?: 'visible_in_forms' | 'visible_in_surveys';
+}
+
+type Mode = 'none' | 'contact' | 'custom' | 'object';
+
+export function MappingPicker({
+  value,
+  onChange,
+  fieldType,
+  fieldLabel,
+  scope = 'contact',
+  visibleInProperty = 'visible_in_forms',
+}: MappingPickerProps) {
+  const { user } = useAuth();
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [objectDefs, setObjectDefs] = useState<CustomObjectDefinition[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createdNotice, setCreatedNotice] = useState<string | null>(null);
+
+  const mode: Mode = value?.objectId
+    ? 'object'
+    : value?.customFieldId
+    ? 'custom'
+    : value?.contactField
+    ? 'contact'
+    : 'none';
+
+  useEffect(() => {
+    if (!user?.organization_id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [{ data }, defs] = await Promise.all([
+          supabase
+            .from('custom_fields')
+            .select('*')
+            .eq('organization_id', user.organization_id)
+            .eq('scope', scope)
+            .eq('active', true)
+            .is('deleted_at', null)
+            .order('display_order')
+            .order('name'),
+          getCustomObjectDefinitions(user.organization_id),
+        ]);
+        if (cancelled) return;
+        setCustomFields((data || []) as CustomField[]);
+        setObjectDefs(defs);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.organization_id, scope, showCreate]);
+
+  const handleModeChange = (next: Mode) => {
+    if (next === 'none') {
+      onChange(undefined);
+    } else if (next === 'contact') {
+      onChange({ contactField: BUILTIN_CONTACT_FIELDS[0].value });
+    } else if (next === 'custom') {
+      const first = customFields[0];
+      onChange(first ? { customFieldId: first.id } : {});
+    } else {
+      const firstDef = objectDefs[0];
+      const firstFieldKey = firstDef?.field_definitions?.[0]?.key;
+      onChange(firstDef && firstFieldKey
+        ? { objectId: firstDef.id, objectFieldKey: firstFieldKey }
+        : {});
+    }
+  };
+
+  const handleCustomFieldCreated = (field: CustomField) => {
+    if (field.scope === scope) {
+      // Created in the picker's own scope — push to dropdown list and auto-map
+      setCustomFields((prev) => [...prev, field]);
+      onChange({ customFieldId: field.id });
+      setCreatedNotice(`Created "${field.name}" and mapped this field to it.`);
+    } else {
+      // Created in a different scope (e.g. opportunity from a contact picker)
+      // Don't auto-map (different scope can't bind here) — just confirm creation
+      setCreatedNotice(
+        `Created "${field.name}" as a ${field.scope} field. It's now reusable in Settings → Custom Fields and on every ${field.scope} detail card.`
+      );
+    }
+    setShowCreate(false);
+    setTimeout(() => setCreatedNotice(null), 6000);
+  };
+
+  const selectedObjectDef = objectDefs.find((d) => d.id === value?.objectId);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-hud-bg-elev">Maps to</label>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
+            title="Create a new contact or opportunity custom field"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New custom field
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-1 p-1 bg-hud-cream rounded-lg sm:grid-cols-4">
+          {([
+            { id: 'none', label: 'No mapping' },
+            { id: 'contact', label: 'Contact' },
+            { id: 'custom', label: 'Custom field' },
+            { id: 'object', label: 'Object field' },
+          ] as { id: Mode; label: string }[]).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => handleModeChange(opt.id)}
+              className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                mode === opt.id ? 'bg-white text-hud-bg-mid shadow-sm' : 'text-hud-cream-mute hover:text-hud-bg-mid'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {createdNotice && (
+        <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg p-2 flex items-start gap-2">
+          <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>{createdNotice}</span>
+        </div>
+      )}
+
+      {mode === 'contact' && (
+        <select
+          value={value?.contactField || ''}
+          onChange={(e) => onChange({ contactField: e.target.value })}
+          className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {BUILTIN_CONTACT_FIELDS.map((f) => (
+            <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+      )}
+
+      {mode === 'custom' && (
+        <div className="space-y-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="w-4 h-4 animate-spin text-hud-cream-dim" />
+            </div>
+          ) : customFields.length === 0 ? (
+            <p className="text-xs text-hud-cream-mute italic">No custom fields yet for this scope.</p>
+          ) : (
+            <select
+              value={value?.customFieldId || ''}
+              onChange={(e) => onChange({ customFieldId: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a custom field...</option>
+              {customFields.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name} {f[visibleInProperty] ? '' : ' (hidden in builder)'}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-blue-300"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create new custom field
+          </button>
+        </div>
+      )}
+
+      {mode === 'object' && (
+        <div className="space-y-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="w-4 h-4 animate-spin text-hud-cream-dim" />
+            </div>
+          ) : objectDefs.length === 0 ? (
+            <p className="text-xs text-hud-cream-mute italic">No custom objects yet. Create one in Settings → Custom Objects.</p>
+          ) : (
+            <>
+              <select
+                value={value?.objectId || ''}
+                onChange={(e) => {
+                  const nextDef = objectDefs.find((d) => d.id === e.target.value);
+                  onChange({
+                    objectId: e.target.value,
+                    objectFieldKey: nextDef?.field_definitions?.[0]?.key || '',
+                  });
+                }}
+                className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select an object...</option>
+                {objectDefs.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              {selectedObjectDef && (
+                <select
+                  value={value?.objectFieldKey || ''}
+                  onChange={(e) =>
+                    onChange({ objectId: selectedObjectDef.id, objectFieldKey: e.target.value })
+                  }
+                  className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a field...</option>
+                  {selectedObjectDef.field_definitions.map((fd) => (
+                    <option key={fd.key} value={fd.key}>
+                      {fd.label}{fd.is_primary ? ' (primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreateCustomFieldModal
+          defaultName={fieldLabel || ''}
+          defaultType={suggestCustomFieldType(fieldType)}
+          defaultScope={scope}
+          visibleInProperty={visibleInProperty}
+          onClose={() => setShowCreate(false)}
+          onCreated={handleCustomFieldCreated}
+        />
+      )}
+    </div>
+  );
+}
+
+const CUSTOM_FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'textarea', label: 'Long text' },
+  { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'date', label: 'Date' },
+  { value: 'datetime', label: 'Date & time' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'url', label: 'URL' },
+  { value: 'select', label: 'Dropdown (single)' },
+  { value: 'multi_select', label: 'Multi-select' },
+  { value: 'radio', label: 'Radio' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'boolean', label: 'Yes / No' },
+  { value: 'file', label: 'File' },
+];
+
+function CreateCustomFieldModal({
+  defaultName,
+  defaultType,
+  defaultScope,
+  visibleInProperty,
+  onClose,
+  onCreated,
+}: {
+  defaultName: string;
+  defaultType: CustomFieldType;
+  defaultScope: CustomFieldScope;
+  visibleInProperty: 'visible_in_forms' | 'visible_in_surveys';
+  onClose: () => void;
+  onCreated: (field: CustomField) => void;
+}) {
+  const { user } = useAuth();
+  const [name, setName] = useState(defaultName);
+  const [fieldType, setFieldType] = useState<CustomFieldType>(defaultType);
+  const [scope, setScope] = useState<CustomFieldScope>(defaultScope);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fieldKey = name ? generateFieldKey(name) : '';
+
+  const handleCreate = async () => {
+    if (!user?.organization_id || !user.id) return;
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await createCustomField(
+        user.organization_id,
+        {
+          scope,
+          group_id: null,
+          name: name.trim(),
+          field_key: fieldKey,
+          field_type: fieldType,
+          options: null,
+          option_items: null,
+          default_value: null,
+          is_required: false,
+          display_order: 0,
+          placeholder: null,
+          help_text: null,
+          [visibleInProperty]: true,
+        } as Parameters<typeof createCustomField>[1],
+        user as Parameters<typeof createCustomField>[2]
+      );
+      onCreated(created);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create custom field');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Portal><div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-hud-cream-soft">
+          <h3 className="text-sm font-semibold text-hud-bg-mid">Create custom field</h3>
+          <button onClick={onClose} className="p-1 text-hud-cream-dim hover:text-hud-bg-elev rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-hud-bg-elev mb-1">Where will this field live?</label>
+            <div className="grid grid-cols-2 gap-1 p-1 bg-hud-cream rounded-lg">
+              {([
+                { id: 'contact' as const, label: 'Contact field' },
+                { id: 'opportunity' as const, label: 'Opportunity field' },
+              ]).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setScope(opt.id)}
+                  className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    scope === opt.id ? 'bg-white text-hud-bg-mid shadow-sm' : 'text-hud-cream-mute hover:text-hud-bg-mid'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-hud-cream-mute mt-1">
+              {scope === 'contact'
+                ? 'Field will appear on the contact detail card and can be auto-filled by this submission.'
+                : 'Field will appear on the opportunity detail card. Form/survey submissions don’t auto-write to opportunity fields, but the field becomes reusable everywhere.'}
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-hud-bg-elev mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Project Budget"
+              autoFocus
+              className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {fieldKey && (
+              <p className="text-xs text-hud-cream-mute mt-1">
+                Key: <span className="font-mono">{fieldKey}</span>
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-hud-bg-elev mb-1">Type</label>
+            <select
+              value={fieldType}
+              onChange={(e) => setFieldType(e.target.value as CustomFieldType)}
+              className="w-full px-3 py-2 text-sm border border-hud-cream-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {CUSTOM_FIELD_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+          {error && (
+            <div className="text-xs text-hud-plum bg-hud-plum/10 border border-hud-plum/25 rounded p-2">{error}</div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-hud-cream-soft bg-hud-bg-elev">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="px-3 py-1.5 text-sm text-hud-cream-soft hover:bg-hud-bg-card rounded-lg disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving || !name.trim()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            {scope === 'contact' ? 'Create & use' : 'Create field'}
+          </button>
+        </div>
+      </div>
+    </div></Portal>
+  );
+}

@@ -1,0 +1,139 @@
+import { useState } from 'react';
+import { X, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
+import type { CustomFieldGroup, CustomFieldScope } from '../../../types';
+import {
+  createCustomFieldGroup,
+  updateCustomFieldGroup,
+} from '../../../services/customFieldGroups';
+import { Portal } from '../../shared/Portal';
+
+interface FieldGroupModalProps {
+  scope: CustomFieldScope;
+  group: CustomFieldGroup | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export function FieldGroupModal({ scope, group, onClose, onSaved }: FieldGroupModalProps) {
+  const { user } = useAuth();
+  const isEditing = !!group;
+
+  const [name, setName] = useState(group?.name || '');
+  const [description, setDescription] = useState(group?.description || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+
+    setError('');
+
+    if (!name.trim()) {
+      setError('Group name is required');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      if (isEditing) {
+        await updateCustomFieldGroup(
+          group!.id,
+          { name: name.trim(), description: description.trim() || null },
+          user
+        );
+      } else {
+        await createCustomFieldGroup(
+          user.organization_id,
+          { scope, name: name.trim(), description: description.trim() || undefined },
+          user
+        );
+      }
+      onSaved();
+    } catch (err) {
+      console.error('Failed to save group:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save group');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-hud-bg-card rounded-xl shadow-xl w-full max-w-md border border-hud-bg-elev">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-hud-bg-elev">
+          <h2 className="text-lg font-semibold text-white">
+            {isEditing ? 'Edit Field Group' : 'Create Field Group'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-hud-cream-dim hover:text-white hover:bg-hud-bg-elev rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-hud-plum/10 border border-hud-plum/30 rounded-lg flex items-start gap-2 text-hud-plum">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-hud-cream-soft mb-1">
+                Group Name <span className="text-hud-plum">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Lead Qualification"
+                autoFocus
+                className="w-full px-3 py-2 bg-hud-bg-mid border border-hud-cream-mute rounded-lg text-white placeholder-hud-cream-dim focus:ring-2 focus:ring-hud-gold focus:border-transparent"
+              />
+              <p className="mt-1 text-xs text-hud-cream-mute">
+                Groups help organize related custom fields together
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-hud-cream-soft mb-1">
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Optional description for this group..."
+                rows={2}
+                className="w-full px-3 py-2 bg-hud-bg-mid border border-hud-cream-mute rounded-lg text-white placeholder-hud-cream-dim focus:ring-2 focus:ring-hud-gold focus:border-transparent resize-none"
+              />
+            </div>
+          </div>
+        </form>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-hud-bg-elev bg-hud-bg-mid/50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-hud-cream-soft border border-hud-cream-mute rounded-lg hover:bg-hud-bg-elev transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-hud-gold to-hud-teal rounded-lg hover:from-hud-gold-deep hover:to-hud-teal disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Group'}
+          </button>
+        </div>
+      </div>
+    </div></Portal>
+  );
+}

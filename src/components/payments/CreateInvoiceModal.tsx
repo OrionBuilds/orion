@@ -1,0 +1,744 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { createInvoice } from '../../services/invoices';
+import { getProducts } from '../../services/products';
+import { getContacts, createContact } from '../../services/contacts';
+import { getOpportunities } from '../../services/opportunities';
+import { getQBOItems, QBOTokenExpiredError, type QBOItem } from '../../services/qboApi';
+import { isQBOConnected } from '../../services/qboAuth';
+import type { Contact, Product, Opportunity, CreateInvoiceLineItem, DiscountType } from '../../types';
+import { X, Loader2, FileText, Plus, Trash2, Search, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { formatCurrency } from '../../utils/formatters';
+import { Portal } from '../shared/Portal';
+
+interface CreateInvoiceModalProps {
+  onClose: () => void;
+  onCreated: () => void;
+  defaultContactId?: string;
+  defaultOpportunityId?: string;
+}
+
+interface LineItem extends CreateInvoiceLineItem {
+  id: string;
+}
+
+export function CreateInvoiceModal({
+  onClose,
+  onCreated,
+  defaultContactId,
+  defaultOpportunityId,
+}: CreateInvoiceModalProps) {
+  const { user } = useAuth();
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [qboItems, setQboItems] = useState<QBOItem[]>([]);
+  const [qboConnected, setQboConnected] = useState(false);
+  const [qboItemsLoading, setQboItemsLoading] = useState(false);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [selectedContactId, setSelectedContactId] = useState(defaultContactId || '');
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState(defaultOpportunityId || '');
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { id: crypto.randomUUID(), description: '', quantity: 1, unit_price: 0 },
+  ]);
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountType, setDiscountType] = useState<DiscountType>('flat');
+  const [dueDate, setDueDate] = useState('');
+  const [memo, setMemo] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
+  const [autoSend, setAutoSend] = useState(false);
+
+  const [contactSearch, setContactSearch] = useState('');
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const [showNewContactForm, setShowNewContactForm] = useState(false);
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [newContactData, setNewContactData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedContactId) {
+      const contactOpps = opportunities.filter((o) => o.contact_id === selectedContactId);
+      if (contactOpps.length > 0 && !selectedOpportunityId) {
+        setSelectedOpportunityId(contactOpps[0].id);
+      }
+    }
+  }, [selectedContactId, opportunities]);
+
+  const loadData = async () => {
+    if (!user) return;
+    try {
+      const [contactData, productData, oppData, qboStatus] = await Promise.all([
+        getContacts(user.organization_id),
+        getProducts({ active: true }),
+        getOpportunities({ status: ['open'] }),
+        isQBOConnected(),
+      ]);
+      setContacts(contactData);
+      setProducts(productData);
+      setOpportunities(oppData.data || []);
+      setQboConnected(qboStatus);
+
+      if (qboStatus) {
+        setQboItemsLoading(true);
+        try {
+          const items = await getQBOItems();
+          setQboItems(items);
+        } catch (err) {
+          if (err instanceof QBOTokenExpiredError) {
+            setQboConnected(false);
+          } else {
+            console.error('Failed to load QBO items:', err);
+          }
+        } finally {
+          setQboItemsLoading(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addLineItem = () => {
+    setLineItems([
+      ...lineItems,
+      { id: crypto.randomUUID(), description: '', quantity: 1, unit_price: 0 },
+    ]);
+  };
+
+  const removeLineItem = (id: string) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((item) => item.id !== id));
+    }
+  };
+
+  const updateLineItem = (id: string, updates: Partial<CreateInvoiceLineItem>) => {
+    setLineItems(
+      lineItems.map((item) =>
+        item.id === id ? { ...item, ...updates } : item
+      )
+    );
+  };
+
+  const addProductToLineItems = (product: Product) => {
+    setLineItems([
+      ...lineItems.filter((item) => item.description || item.unit_price > 0),
+      {
+        id: crypto.randomUUID(),
+        product_id: product.id,
+        description: product.name,
+        quantity: 1,
+        unit_price: product.price_amount,
+      },
+    ]);
+  };
+
+  const addQBOItemToLineItems = (item: QBOItem) => {
+    setLineItems([
+      ...lineItems.filter((li) => li.description || li.unit_price > 0),
+      {
+        id: crypto.randomUUID(),
+        description: item.Name,
+        quantity: 1,
+        unit_price: item.UnitPrice ?? 0,
+      },
+    ]);
+  };
+
+  const handleProductSelect = (value: string) => {
+    if (!value) return;
+    if (value.startsWith('qbo:')) {
+      const qboId = value.slice(4);
+      const item = qboItems.find((i) => i.Id === qboId);
+      if (item) addQBOItemToLineItems(item);
+    } else {
+      const product = products.find((p) => p.id === value);
+      if (product) addProductToLineItems(product);
+    }
+  };
+
+  const calculateSubtotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  };
+
+  const calculateDiscount = () => {
+    const discount = parseFloat(discountAmount) || 0;
+    if (discountType === 'percentage') {
+      return (calculateSubtotal() * discount) / 100;
+    }
+    return discount;
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() - calculateDiscount();
+  };
+
+  const filteredContacts = contacts.filter((c) => {
+    if (!contactSearch) return true;
+    const search = contactSearch.toLowerCase();
+    const name = `${c.first_name} ${c.last_name}`.toLowerCase();
+    const company = (c.company || '').toLowerCase();
+    const email = (c.email || '').toLowerCase();
+    return name.includes(search) || company.includes(search) || email.includes(search);
+  });
+
+  const selectedContact = contacts.find((c) => c.id === selectedContactId);
+  const contactOpportunities = opportunities.filter((o) => o.contact_id === selectedContactId);
+
+  const selectContact = (contact: Contact) => {
+    setSelectedContactId(contact.id);
+    setContactSearch('');
+    setShowContactDropdown(false);
+    setShowNewContactForm(false);
+  };
+
+  const openNewContactForm = () => {
+    setShowNewContactForm(true);
+    setShowContactDropdown(false);
+    setNewContactData({
+      first_name: contactSearch,
+      last_name: '',
+      email: '',
+      phone: '',
+    });
+  };
+
+  const cancelNewContactForm = () => {
+    setShowNewContactForm(false);
+    setNewContactData({ first_name: '', last_name: '', email: '', phone: '' });
+  };
+
+  const handleCreateContact = async () => {
+    if (!user || !newContactData.first_name.trim()) return;
+
+    setCreatingContact(true);
+    try {
+      const newContact = await createContact(
+        user.organization_id,
+        {
+          department_id: user.department_id,
+          owner_id: user.id,
+          first_name: newContactData.first_name.trim(),
+          last_name: newContactData.last_name.trim() || undefined,
+          email: newContactData.email.trim() || null,
+          phone: newContactData.phone.trim() || null,
+        },
+        user
+      );
+      setContacts([newContact, ...contacts]);
+      selectContact(newContact);
+    } catch (err) {
+      console.error('Failed to create contact:', err);
+    } finally {
+      setCreatingContact(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !selectedContactId || lineItems.every((item) => !item.description)) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await createInvoice(
+        {
+          contact_id: selectedContactId,
+          opportunity_id: selectedOpportunityId || undefined,
+          line_items: lineItems
+            .filter((item) => item.description)
+            .map(({ id, ...item }) => item),
+          discount_amount: parseFloat(discountAmount) || undefined,
+          discount_type: discountAmount ? discountType : undefined,
+          due_date: dueDate || undefined,
+          memo: memo || undefined,
+          internal_notes: internalNotes || undefined,
+          auto_send: autoSend,
+        },
+        user
+      );
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Portal><div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+        <div className="relative bg-hud-bg-mid rounded-xl border border-hud-bg-card p-8">
+          <Loader2 className="w-8 h-8 animate-spin text-hud-gold" />
+        </div>
+      </div></Portal>
+    );
+  }
+
+  return (
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-8">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-2xl bg-hud-bg-mid rounded-xl border border-hud-bg-card shadow-xl mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-hud-bg-card">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <FileText className="w-5 h-5 text-hud-emerald" />
+            New Invoice
+          </h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-hud-bg-card text-hud-cream-dim">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-6 max-h-[70dvh] overflow-y-auto">
+          {error && (
+            <div className="p-3 rounded-lg bg-hud-plum/10 border border-hud-plum/20 text-hud-plum text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+                Contact *
+              </label>
+              {selectedContact ? (
+                <div className="flex items-center justify-between p-3 bg-hud-bg-card border border-hud-bg-elev rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-hud-bg-elev flex items-center justify-center">
+                      <UserIcon className="w-4 h-4 text-hud-cream-dim" />
+                    </div>
+                    <div>
+                      <div className="text-white text-sm">
+                        {selectedContact.company || `${selectedContact.first_name} ${selectedContact.last_name}`}
+                      </div>
+                      {selectedContact.email && (
+                        <div className="text-xs text-hud-cream-dim">{selectedContact.email}</div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedContactId('');
+                      setSelectedOpportunityId('');
+                    }}
+                    className="text-sm text-hud-gold-soft hover:text-hud-gold-soft"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : showNewContactForm ? (
+                <div className="bg-hud-bg-card border border-hud-bg-elev rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={cancelNewContactForm}
+                      className="p-1 hover:bg-hud-bg-elev rounded"
+                    >
+                      <ArrowLeft className="w-4 h-4 text-hud-cream-dim" />
+                    </button>
+                    <span className="text-sm font-medium text-white">New Contact</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-hud-cream-dim mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        value={newContactData.first_name}
+                        onChange={(e) => setNewContactData((prev) => ({ ...prev, first_name: e.target.value }))}
+                        placeholder="First name"
+                        className="w-full px-3 py-2 bg-hud-bg-elev border border-hud-cream-mute rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-hud-cream-dim mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={newContactData.last_name}
+                        onChange={(e) => setNewContactData((prev) => ({ ...prev, last_name: e.target.value }))}
+                        placeholder="Last name"
+                        className="w-full px-3 py-2 bg-hud-bg-elev border border-hud-cream-mute rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-hud-cream-dim mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={newContactData.email}
+                      onChange={(e) => setNewContactData((prev) => ({ ...prev, email: e.target.value }))}
+                      placeholder="email@example.com"
+                      className="w-full px-3 py-2 bg-hud-bg-elev border border-hud-cream-mute rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-hud-cream-dim mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={newContactData.phone}
+                      onChange={(e) => setNewContactData((prev) => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full px-3 py-2 bg-hud-bg-elev border border-hud-cream-mute rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={cancelNewContactForm}
+                      className="flex-1 px-3 py-2 bg-hud-bg-elev text-hud-cream-soft rounded text-sm hover:bg-hud-cream-mute transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateContact}
+                      disabled={creatingContact || !newContactData.first_name.trim()}
+                      className="flex-1 px-3 py-2 bg-hud-gold-deep text-white rounded text-sm hover:bg-hud-gold-deep disabled:opacity-50 transition-colors"
+                    >
+                      {creatingContact ? 'Creating...' : 'Create & Select'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hud-cream-dim" />
+                  <input
+                    type="text"
+                    value={contactSearch}
+                    onChange={(e) => {
+                      setContactSearch(e.target.value);
+                      setShowContactDropdown(true);
+                    }}
+                    onFocus={() => setShowContactDropdown(true)}
+                    placeholder="Search contacts..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                  />
+                  {showContactDropdown && (
+                    <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto rounded-lg bg-hud-bg-card border border-hud-bg-elev shadow-xl">
+                      {filteredContacts.length === 0 && !contactSearch ? (
+                        <div className="px-4 py-3 text-sm text-hud-cream-dim">Type to search contacts</div>
+                      ) : filteredContacts.length === 0 ? (
+                        <>
+                          <div className="px-4 py-3 text-sm text-hud-cream-dim">No contacts found</div>
+                          <button
+                            type="button"
+                            onClick={openNewContactForm}
+                            className="w-full px-4 py-3 text-left hover:bg-hud-bg-elev flex items-center gap-3 border-t border-hud-bg-elev transition-colors"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-hud-gold-deep/20 flex items-center justify-center">
+                              <Plus className="w-4 h-4 text-hud-gold-soft" />
+                            </div>
+                            <div>
+                              <div className="text-hud-gold-soft font-medium text-sm">Create new contact</div>
+                              {contactSearch && (
+                                <div className="text-xs text-hud-cream-dim">Add "{contactSearch}" as a new contact</div>
+                              )}
+                            </div>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {filteredContacts.slice(0, 10).map((contact) => (
+                            <button
+                              key={contact.id}
+                              type="button"
+                              onClick={() => selectContact(contact)}
+                              className="w-full px-4 py-2 text-left hover:bg-hud-bg-elev flex items-center gap-3 transition-colors"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-hud-bg-elev flex items-center justify-center">
+                                <UserIcon className="w-4 h-4 text-hud-cream-dim" />
+                              </div>
+                              <div>
+                                <p className="text-white text-sm">
+                                  {contact.company || `${contact.first_name} ${contact.last_name}`}
+                                </p>
+                                {contact.email && (
+                                  <p className="text-hud-cream-dim text-xs">{contact.email}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={openNewContactForm}
+                            className="w-full px-4 py-3 text-left hover:bg-hud-bg-elev flex items-center gap-3 border-t border-hud-bg-elev transition-colors"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-hud-gold-deep/20 flex items-center justify-center">
+                              <Plus className="w-4 h-4 text-hud-gold-soft" />
+                            </div>
+                            <div>
+                              <div className="text-hud-gold-soft font-medium text-sm">Create new contact</div>
+                              {contactSearch && (
+                                <div className="text-xs text-hud-cream-dim">Add "{contactSearch}" as a new contact</div>
+                              )}
+                            </div>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+                Link to Opportunity
+              </label>
+              <select
+                value={selectedOpportunityId}
+                onChange={(e) => setSelectedOpportunityId(e.target.value)}
+                disabled={!selectedContactId || contactOpportunities.length === 0}
+                className="w-full px-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white focus:outline-none focus:ring-2 focus:ring-hud-gold disabled:opacity-50"
+              >
+                <option value="">None</option>
+                {contactOpportunities.map((opp) => (
+                  <option key={opp.id} value={opp.id}>
+                    {formatCurrency(opp.value_amount)} - {opp.stage?.name || 'Unknown stage'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-hud-cream-soft">Line Items *</label>
+              <div className="flex items-center gap-2">
+                <select
+                  onChange={(e) => {
+                    handleProductSelect(e.target.value);
+                    e.target.value = '';
+                  }}
+                  disabled={qboItemsLoading}
+                  className="px-3 py-1.5 text-sm rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white focus:outline-none focus:ring-2 focus:ring-hud-gold disabled:opacity-60"
+                >
+                  <option value="">
+                    {qboItemsLoading ? 'Loading products...' : 'Add from products...'}
+                  </option>
+                  {products.length > 0 && (
+                    <optgroup label="Local Products">
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} - {formatCurrency(product.price_amount)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {qboConnected && qboItems.length > 0 && (
+                    <optgroup label="QuickBooks Products">
+                      {qboItems.map((item) => (
+                        <option key={item.Id} value={`qbo:${item.Id}`}>
+                          {item.Name}{item.UnitPrice != null ? ` - ${formatCurrency(item.UnitPrice)}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg bg-hud-bg-card text-hud-cream-soft hover:bg-hud-bg-elev transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Custom
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {lineItems.map((item, index) => (
+                <div key={item.id} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item.description}
+                    onChange={(e) => updateLineItem(item.id, { description: e.target.value })}
+                    placeholder="Description"
+                    className="flex-1 px-3 py-2 text-sm rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                  />
+                  <input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => updateLineItem(item.id, { quantity: parseFloat(e.target.value) || 0 })}
+                    placeholder="Qty"
+                    min="0"
+                    step="1"
+                    className="w-20 px-3 py-2 text-sm rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                  />
+                  <div className="relative w-28">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-cream-dim text-sm">$</span>
+                    <input
+                      type="number"
+                      value={item.unit_price || ''}
+                      onChange={(e) => updateLineItem(item.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full pl-7 pr-3 py-2 text-sm rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                    />
+                  </div>
+                  <span className="w-24 text-right text-sm text-white">
+                    {formatCurrency(item.quantity * item.unit_price)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeLineItem(item.id)}
+                    disabled={lineItems.length === 1}
+                    className="p-2 rounded hover:bg-hud-bg-elev text-hud-cream-dim hover:text-hud-plum disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+                Discount
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-hud-cream-dim">
+                    {discountType === 'flat' ? '$' : '%'}
+                  </span>
+                  <input
+                    type="number"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    step={discountType === 'percentage' ? '1' : '0.01'}
+                    className="w-full pl-7 pr-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                  />
+                </div>
+                <select
+                  value={discountType}
+                  onChange={(e) => setDiscountType(e.target.value as DiscountType)}
+                  className="px-3 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white focus:outline-none focus:ring-2 focus:ring-hud-gold"
+                >
+                  <option value="flat">Flat</option>
+                  <option value="percentage">%</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+                Due Date
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white focus:outline-none focus:ring-2 focus:ring-hud-gold"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-hud-bg-card">
+            <div className="text-right">
+              <div className="flex justify-between gap-8 text-sm">
+                <span className="text-hud-cream-dim">Subtotal:</span>
+                <span className="text-white">{formatCurrency(calculateSubtotal())}</span>
+              </div>
+              {parseFloat(discountAmount) > 0 && (
+                <div className="flex justify-between gap-8 text-sm mt-1">
+                  <span className="text-hud-cream-dim">Discount:</span>
+                  <span className="text-hud-plum">-{formatCurrency(calculateDiscount())}</span>
+                </div>
+              )}
+              <div className="flex justify-between gap-8 text-lg font-semibold mt-2">
+                <span className="text-hud-cream-soft">Total:</span>
+                <span className="text-white">{formatCurrency(calculateTotal())}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+              Memo (customer-facing)
+            </label>
+            <textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="Notes shown on the invoice..."
+              rows={2}
+              className="w-full px-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-hud-cream-soft mb-2">
+              Internal Notes
+            </label>
+            <textarea
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              placeholder="Notes for your team only..."
+              rows={2}
+              className="w-full px-4 py-2 rounded-lg bg-hud-bg-card border border-hud-bg-elev text-white placeholder-hud-cream-dim focus:outline-none focus:ring-2 focus:ring-hud-gold resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="autoSend"
+              checked={autoSend}
+              onChange={(e) => setAutoSend(e.target.checked)}
+              className="w-4 h-4 rounded border-hud-bg-elev bg-hud-bg-card text-hud-emerald focus:ring-hud-emerald"
+            />
+            <label htmlFor="autoSend" className="text-sm text-hud-cream-soft">
+              Send immediately after creating
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-hud-bg-card">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 rounded-lg bg-hud-bg-card text-white hover:bg-hud-bg-elev transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || !selectedContactId || lineItems.every((item) => !item.description)}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-hud-emerald to-hud-teal text-white font-medium hover:from-hud-emerald-dim hover:to-hud-teal disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Invoice'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div></Portal>
+  );
+}

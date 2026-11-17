@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Orion OS">
+  <rect width="512" height="512" rx="112" fill="#0D0E10"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#DC2626" stroke-width="40"/>
+  <circle cx="256" cy="256" r="48" fill="#F3F3F4"/>
+  <circle cx="362" cy="150" r="28" fill="#F87171"/>
+</svg>
